@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/m-mizutani/devourer/pkg/domain/model"
-	"github.com/m-mizutani/devourer/pkg/utils"
-	"github.com/urfave/cli/v2"
+	"github.com/secmon-lab/devourer/pkg/domain/model"
+	"github.com/secmon-lab/devourer/pkg/utils"
+	"github.com/urfave/cli/v3"
 )
 
 type flagConfig interface {

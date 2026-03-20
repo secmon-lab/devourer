@@ -1,10 +1,12 @@
 package cli
 
 import (
-	"github.com/m-mizutani/devourer/pkg/cli/config"
-	"github.com/m-mizutani/devourer/pkg/domain/types"
-	"github.com/m-mizutani/devourer/pkg/utils"
-	"github.com/urfave/cli/v2"
+	"context"
+
+	"github.com/secmon-lab/devourer/pkg/cli/config"
+	"github.com/secmon-lab/devourer/pkg/domain/types"
+	"github.com/secmon-lab/devourer/pkg/utils"
+	"github.com/urfave/cli/v3"
 )
 
 func Run(args []string) error {
@@ -14,22 +16,22 @@ func Run(args []string) error {
 		closer func()
 	)
 
-	app := cli.App{
+	cmd := &cli.Command{
 		Name:    "devourer",
 		Flags:   mergeFlags([]cli.Flag{}, &logger),
 		Version: types.AppVersion,
 		Commands: []*cli.Command{
 			cmdCapture(),
 		},
-		Before: func(ctx *cli.Context) error {
+		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			f, err := logger.Configure()
 			if err != nil {
-				return err
+				return ctx, err
 			}
 			closer = f
-			return nil
+			return ctx, nil
 		},
-		After: func(ctx *cli.Context) error {
+		After: func(ctx context.Context, cmd *cli.Command) error {
 			if closer != nil {
 				closer()
 			}
@@ -37,7 +39,7 @@ func Run(args []string) error {
 		},
 	}
 
-	if err := app.Run(args); err != nil {
+	if err := cmd.Run(context.Background(), args); err != nil {
 		utils.Logger().Error("Failed to run devourer", utils.ErrLog(err))
 		return err
 	}

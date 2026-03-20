@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-	"github.com/m-mizutani/devourer/pkg/domain/model"
+	"github.com/secmon-lab/devourer/pkg/domain/model"
 )
 
 type Engine struct {

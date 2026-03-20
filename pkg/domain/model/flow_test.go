@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/m-mizutani/devourer/pkg/domain/model"
+	"github.com/secmon-lab/devourer/pkg/domain/model"
 )
 
 func TestFlowKey(t *testing.T) {

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/m-mizutani/devourer/pkg/domain/model"
+	"github.com/secmon-lab/devourer/pkg/domain/model"
 )
 
 type FlowMap struct {

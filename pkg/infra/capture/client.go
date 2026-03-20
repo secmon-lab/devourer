@@ -3,8 +3,8 @@ package capture
 import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
-	"github.com/m-mizutani/devourer/pkg/domain/interfaces"
-	"github.com/m-mizutani/goerr"
+	"github.com/secmon-lab/devourer/pkg/domain/interfaces"
+	"github.com/m-mizutani/goerr/v2"
 )
 
 func NewDevice(iface string) (interfaces.Capture, error) {

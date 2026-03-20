@@ -3,7 +3,7 @@ package utils
 import (
 	"io"
 
-	"github.com/m-mizutani/goerr"
+	"github.com/m-mizutani/goerr/v2"
 )
 
 type Closer interface {
@@ -12,12 +12,12 @@ type Closer interface {
 
 func SafeClose(c Closer) {
 	if err := c.Close(); err != nil {
-		Logger().Error("Fail to close io.WriteCloser", ErrLog(goerr.Wrap(err)))
+		Logger().Error("Fail to close io.WriteCloser", ErrLog(goerr.Wrap(err, "failed to close")))
 	}
 }
 
 func SafeWrite(w io.Writer, b []byte) {
 	if _, err := w.Write(b); err != nil {
-		Logger().Error("Fail to write", ErrLog(goerr.Wrap(err)))
+		Logger().Error("Fail to write", ErrLog(goerr.Wrap(err, "failed to write")))
 	}
 }

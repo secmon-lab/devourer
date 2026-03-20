@@ -3,11 +3,11 @@ package config
 import (
 	"context"
 
-	"github.com/m-mizutani/devourer/pkg/domain/interfaces"
-	"github.com/m-mizutani/devourer/pkg/domain/types"
-	"github.com/m-mizutani/devourer/pkg/infra/bq"
-	"github.com/m-mizutani/goerr"
-	"github.com/urfave/cli/v2"
+	"github.com/m-mizutani/goerr/v2"
+	"github.com/secmon-lab/devourer/pkg/domain/interfaces"
+	"github.com/secmon-lab/devourer/pkg/domain/types"
+	"github.com/secmon-lab/devourer/pkg/infra/bq"
+	"github.com/urfave/cli/v3"
 	"google.golang.org/api/option"
 )
 
@@ -24,25 +24,25 @@ func (x *BigQuery) Flags() []cli.Flag {
 			Name:        "bq-project-id",
 			Usage:       "BigQuery project ID",
 			Destination: &x.projectID,
-			EnvVars:     []string{"DEVOURER_BIGQUERY_PROJECT_ID"},
+			Sources:     cli.EnvVars("DEVOURER_BIGQUERY_PROJECT_ID"),
 		},
 		&cli.StringFlag{
 			Name:        "bq-dataset-id",
 			Usage:       "BigQuery dataset ID",
 			Destination: &x.datasetID,
-			EnvVars:     []string{"DEVOURER_BIGQUERY_DATASET_ID"},
+			Sources:     cli.EnvVars("DEVOURER_BIGQUERY_DATASET_ID"),
 		},
 		&cli.StringFlag{
 			Name:        "bq-sa-key-data",
 			Usage:       "BigQuery service account key data",
 			Destination: &x.saKeyData,
-			EnvVars:     []string{"DEVOURER_BIGQUERY_SA_KEY_DATA"},
+			Sources:     cli.EnvVars("DEVOURER_BIGQUERY_SA_KEY_DATA"),
 		},
 		&cli.StringFlag{
 			Name:        "bq-sa-key-file",
 			Usage:       "BigQuery service account key file",
 			Destination: &x.saKeyFile,
-			EnvVars:     []string{"DEVOURER_BIGQUERY_SA_KEY_FILE"},
+			Sources:     cli.EnvVars("DEVOURER_BIGQUERY_SA_KEY_FILE"),
 		},
 	}
 }

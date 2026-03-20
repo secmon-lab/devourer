@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
-	"github.com/m-mizutani/devourer/pkg/domain/interfaces"
-	"github.com/m-mizutani/devourer/pkg/domain/model"
-	"github.com/m-mizutani/devourer/pkg/utils"
-	"github.com/m-mizutani/goerr"
+	"github.com/secmon-lab/devourer/pkg/domain/interfaces"
+	"github.com/secmon-lab/devourer/pkg/domain/model"
+	"github.com/secmon-lab/devourer/pkg/utils"
+	"github.com/m-mizutani/goerr/v2"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
@@ -62,7 +62,7 @@ func New(ctx context.Context, projectID, datasetID string, opts ...option.Client
 		table := dataSet.Table(t.name)
 		schema, err := bigquery.InferSchema(t.schema)
 		if err != nil {
-			return nil, goerr.Wrap(err, "failed to infer schema").With("table", t.name)
+			return nil, goerr.Wrap(err, "failed to infer schema", goerr.Value("table", t.name))
 		}
 
 		meta := &bigquery.TableMetadata{
@@ -74,7 +74,7 @@ func New(ctx context.Context, projectID, datasetID string, opts ...option.Client
 		}
 		if err := table.Create(ctx, meta); err != nil {
 			if gerr, ok := err.(*googleapi.Error); !ok || gerr.Code != 409 {
-				return nil, goerr.Wrap(err, "failed to create table").With("table", t.name)
+				return nil, goerr.Wrap(err, "failed to create table", goerr.Value("table", t.name))
 			}
 		}
 	}
