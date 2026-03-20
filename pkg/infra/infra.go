@@ -1,7 +1,7 @@
 package infra
 
 import (
-	"github.com/m-mizutani/devourer/pkg/domain/interfaces"
+	"github.com/secmon-lab/devourer/pkg/domain/interfaces"
 )
 
 type Clients struct {

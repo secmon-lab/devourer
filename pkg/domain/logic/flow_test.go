@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/m-mizutani/devourer/pkg/domain/logic"
-	"github.com/m-mizutani/devourer/pkg/domain/model"
+	"github.com/secmon-lab/devourer/pkg/domain/logic"
+	"github.com/secmon-lab/devourer/pkg/domain/model"
 	"github.com/m-mizutani/gt"
 )
 

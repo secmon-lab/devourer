@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -10,14 +11,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/m-mizutani/devourer/pkg/cli/config"
-	"github.com/m-mizutani/devourer/pkg/domain/interfaces"
-	"github.com/m-mizutani/devourer/pkg/domain/logic"
-	"github.com/m-mizutani/devourer/pkg/infra"
-	"github.com/m-mizutani/devourer/pkg/infra/capture"
-	"github.com/m-mizutani/devourer/pkg/utils"
-	"github.com/m-mizutani/goerr"
-	"github.com/urfave/cli/v2"
+	"github.com/m-mizutani/goerr/v2"
+	"github.com/secmon-lab/devourer/pkg/cli/config"
+	"github.com/secmon-lab/devourer/pkg/domain/interfaces"
+	"github.com/secmon-lab/devourer/pkg/domain/logic"
+	"github.com/secmon-lab/devourer/pkg/infra"
+	"github.com/secmon-lab/devourer/pkg/infra/capture"
+	"github.com/secmon-lab/devourer/pkg/utils"
+	"github.com/urfave/cli/v3"
 )
 
 func cmdCapture() *cli.Command {
@@ -38,7 +39,7 @@ func cmdCapture() *cli.Command {
 				Name:        "interface",
 				Category:    "capture",
 				Aliases:     []string{"i"},
-				EnvVars:     []string{"DEVOURER_INTERFACE"},
+				Sources:     cli.EnvVars("DEVOURER_INTERFACE"),
 				Usage:       "Network interface to capture packets",
 				Destination: &iface,
 				Required:    true,
@@ -47,7 +48,7 @@ func cmdCapture() *cli.Command {
 				Name:        "output",
 				Category:    "capture",
 				Aliases:     []string{"o"},
-				EnvVars:     []string{"DEVOURER_OUTPUT"},
+				Sources:     cli.EnvVars("DEVOURER_OUTPUT"),
 				Usage:       "Output destination (stdout, file, bigquery)",
 				Destination: &output,
 				Value:       "stdout",
@@ -56,7 +57,7 @@ func cmdCapture() *cli.Command {
 				Name:        "write-file",
 				Category:    "capture",
 				Aliases:     []string{"w"},
-				EnvVars:     []string{"DEVOURER_WRITE_FILE"},
+				Sources:     cli.EnvVars("DEVOURER_WRITE_FILE"),
 				Usage:       "Write packets to file. This option works only with output=file",
 				Destination: &writeFile,
 			},
@@ -64,12 +65,12 @@ func cmdCapture() *cli.Command {
 				Name:        "stat-interval",
 				Category:    "capture",
 				Aliases:     []string{"s"},
-				EnvVars:     []string{"DEVOURER_STAT_INTERVAL"},
+				Sources:     cli.EnvVars("DEVOURER_STAT_INTERVAL"),
 				Usage:       "Show statistics in every interval",
 				Destination: &statInterval,
 			},
 		}, &bigquery),
-		Action: func(c *cli.Context) error {
+		Action: func(ctx context.Context, cmd *cli.Command) error {
 			// configure dumper
 			var dumper interfaces.Dumper
 			switch output {
@@ -87,7 +88,7 @@ func cmdCapture() *cli.Command {
 				dumper = &jsonDumper{encoder: json.NewEncoder(os.Stdout)}
 
 			case "bigquery":
-				v, err := bigquery.Configure(c.Context)
+				v, err := bigquery.Configure(ctx)
 				if err != nil {
 					return err
 				}
@@ -115,7 +116,6 @@ func cmdCapture() *cli.Command {
 				statTicker = make(chan time.Time)
 			}
 
-			ctx := c.Context
 			engine := logic.NewEngine()
 
 			utils.Logger().Info("Starting capture...",
