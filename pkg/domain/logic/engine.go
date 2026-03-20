@@ -1,23 +1,32 @@
 package logic
 
 import (
+	"context"
+	"log/slog"
 	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/secmon-lab/devourer/pkg/domain/interfaces"
 	"github.com/secmon-lab/devourer/pkg/domain/model"
+	"github.com/secmon-lab/devourer/pkg/utils"
 )
 
 type Engine struct {
 	timeout time.Duration
 	flowMap *FlowMap
+	repo    interfaces.Repository
 }
 
-func NewEngine() *Engine {
-	return &Engine{
+func NewEngine(opts ...Option) *Engine {
+	e := &Engine{
 		timeout: 120 * time.Second,
 		flowMap: NewFlowMap(),
 	}
+	for _, opt := range opts {
+		opt(e)
+	}
+	return e
 }
 
 type Option func(*Engine)
@@ -28,7 +37,18 @@ func WithTimeout(d time.Duration) Option {
 	}
 }
 
-func (x *Engine) InputPacket(pkt gopacket.Packet) (*model.Record, error) {
+func WithRepository(repo interfaces.Repository) Option {
+	return func(x *Engine) {
+		x.repo = repo
+	}
+}
+
+func (x *Engine) InputPacket(ctx context.Context, pkt gopacket.Packet) (*model.Record, error) {
+	// Extract name resolution data from protocol-specific layers
+	if x.repo != nil {
+		ExtractNames(ctx, pkt, x.repo)
+	}
+
 	if pkt.NetworkLayer() == nil || pkt.TransportLayer() == nil {
 		// not supported
 		return nil, nil
@@ -58,14 +78,19 @@ func (x *Engine) InputPacket(pkt gopacket.Packet) (*model.Record, error) {
 		return nil, nil
 	}
 
+	// Extract MAC addresses from Ethernet layer
+	srcMAC, dstMAC := GetEthernetMACs(pkt)
+
 	flow := model.NewFlow(
 		model.Peer{
-			Addr: netLayer.Src().Raw(),
-			Port: srcPort,
+			Addr:   netLayer.Src().Raw(),
+			Port:   srcPort,
+			HWAddr: srcMAC,
 		},
 		model.Peer{
-			Addr: netLayer.Dst().Raw(),
-			Port: dstPort,
+			Addr:   netLayer.Dst().Raw(),
+			Port:   dstPort,
+			HWAddr: dstMAC,
 		},
 		proto,
 		pkt.Metadata().Timestamp,
@@ -80,16 +105,56 @@ func (x *Engine) InputPacket(pkt gopacket.Packet) (*model.Record, error) {
 	return &model.Record{}, nil
 }
 
-func (x *Engine) Tick(now time.Time) (*model.Record, error) {
+func (x *Engine) Tick(ctx context.Context, now time.Time) (*model.Record, error) {
+	flows := x.flowMap.Expire(now.Add(-x.timeout))
+	x.enrichFlows(ctx, flows)
 	return &model.Record{
-		FlowLogs: x.flowMap.Expire(now.Add(-x.timeout)),
+		FlowLogs: flows,
 	}, nil
 }
 
-func (x *Engine) Flush() *model.Record {
+func (x *Engine) Flush(ctx context.Context) *model.Record {
+	flows := x.flowMap.Flush()
+	x.enrichFlows(ctx, flows)
 	return &model.Record{
-		FlowLogs: x.flowMap.Flush(),
+		FlowLogs: flows,
 	}
+}
+
+func (x *Engine) enrichFlows(ctx context.Context, flows []*model.Flow) {
+	if x.repo == nil {
+		return
+	}
+
+	for _, flow := range flows {
+		x.enrichPeer(ctx, &flow.Src)
+		x.enrichPeer(ctx, &flow.Dst)
+	}
+}
+
+func (x *Engine) enrichPeer(ctx context.Context, peer *model.Peer) {
+	// Try IP-based lookup first (DNS)
+	names, err := x.repo.LookupByAddr(ctx, peer.Addr)
+	if err != nil {
+		utils.Logger().Warn("failed to lookup names by addr",
+			slog.String("addr", peer.Addr.String()),
+			slog.Any("error", err),
+		)
+	}
+
+	// Fallback to MAC-based lookup (mDNS/LLMNR/NBNS/DHCP)
+	if peer.HWAddr != nil {
+		hwNames, err := x.repo.LookupByHWAddr(ctx, peer.HWAddr)
+		if err != nil {
+			utils.Logger().Warn("failed to lookup names by hw addr",
+				slog.String("hw_addr", peer.HWAddr.String()),
+				slog.Any("error", err),
+			)
+		}
+		names = append(names, hwNames...)
+	}
+
+	peer.Names = names
 }
 
 func (x *Engine) FlowCount() int {

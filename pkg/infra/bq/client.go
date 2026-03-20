@@ -2,6 +2,7 @@ package bq
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"cloud.google.com/go/bigquery"
@@ -27,6 +28,10 @@ type flowLog struct {
 	DstAddr     string    `bigquery:"dst_addr"`
 	SrcPort     int       `bigquery:"src_port"`
 	DstPort     int       `bigquery:"dst_port"`
+	SrcHWAddr   string    `bigquery:"src_hw_addr"`
+	DstHWAddr   string    `bigquery:"dst_hw_addr"`
+	SrcNames    []string  `bigquery:"src_names"`
+	DstNames    []string  `bigquery:"dst_names"`
 	FirstSeenAt time.Time `bigquery:"first_seen_at"`
 	LastSeenAt  time.Time `bigquery:"last_seen_at"`
 	SrcBytes    int64     `bigquery:"src_bytes"`
@@ -98,6 +103,10 @@ func (x *implClient) Dump(ctx context.Context, record *model.Record) error {
 				DstAddr:     flow.Dst.Addr.String(),
 				SrcPort:     int(flow.Src.Port),
 				DstPort:     int(flow.Dst.Port),
+				SrcHWAddr:   hwAddrString(flow.Src.HWAddr),
+				DstHWAddr:   hwAddrString(flow.Dst.HWAddr),
+				SrcNames:    flow.Src.Names,
+				DstNames:    flow.Dst.Names,
 				FirstSeenAt: flow.FirstSeenAt,
 				LastSeenAt:  flow.LastSeenAt,
 				SrcBytes:    int64(flow.SrcStat.Bytes),
@@ -115,6 +124,13 @@ func (x *implClient) Dump(ctx context.Context, record *model.Record) error {
 	}
 
 	return nil
+}
+
+func hwAddrString(addr net.HardwareAddr) string {
+	if addr == nil {
+		return ""
+	}
+	return addr.String()
 }
 
 func (x *implClient) Close() {

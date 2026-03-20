@@ -68,8 +68,10 @@ func (x *PeerStat) Add(y *PeerStat) {
 }
 
 type Peer struct {
-	Addr net.IP `bigquery:"addr" json:"addr"`
-	Port uint32 `bigquery:"port" json:"port"`
+	Addr   net.IP           `bigquery:"addr" json:"addr"`
+	Port   uint32           `bigquery:"port" json:"port"`
+	HWAddr net.HardwareAddr `bigquery:"-" json:"hw_addr,omitempty"`
+	Names  []string         `bigquery:"-" json:"names,omitempty"`
 }
 
 func (x Peer) Equal(y *Peer) bool {
