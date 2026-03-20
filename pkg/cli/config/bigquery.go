@@ -57,10 +57,10 @@ func (x *BigQuery) Configure(ctx context.Context) (interfaces.Dumper, error) {
 
 	var options []option.ClientOption
 	if x.saKeyData != "" {
-		options = append(options, option.WithCredentialsJSON([]byte(x.saKeyData)))
+		options = append(options, option.WithAuthCredentialsJSON(option.ServiceAccount, []byte(x.saKeyData)))
 	}
 	if x.saKeyFile != "" {
-		options = append(options, option.WithCredentialsFile(x.saKeyFile))
+		options = append(options, option.WithAuthCredentialsFile(option.ServiceAccount, x.saKeyFile))
 	}
 
 	return bq.New(ctx,
