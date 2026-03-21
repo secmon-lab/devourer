@@ -17,6 +17,7 @@ import (
 	"github.com/secmon-lab/devourer/pkg/domain/logic"
 	"github.com/secmon-lab/devourer/pkg/infra"
 	"github.com/secmon-lab/devourer/pkg/infra/capture"
+	"github.com/secmon-lab/devourer/pkg/infra/repo"
 	"github.com/secmon-lab/devourer/pkg/utils"
 	"github.com/urfave/cli/v3"
 )
@@ -116,7 +117,10 @@ func cmdCapture() *cli.Command {
 				statTicker = make(chan time.Time)
 			}
 
-			engine := logic.NewEngine()
+			nameRepo := repo.NewMemory()
+			engine := logic.NewEngine(
+				logic.WithRepository(nameRepo),
+			)
 
 			utils.Logger().Info("Starting capture...",
 				slog.Any("interface", iface),
@@ -137,7 +141,7 @@ func cmdCapture() *cli.Command {
 					packetCount++
 					sizeCount += int64(pkt.Metadata().Length)
 
-					out, err := engine.InputPacket(pkt)
+					out, err := engine.InputPacket(ctx, pkt)
 					if err != nil {
 						return err
 					}
@@ -159,7 +163,7 @@ func cmdCapture() *cli.Command {
 					lastTime = time.Now()
 
 				case <-expireTicker.C:
-					out, err := engine.Tick(time.Now())
+					out, err := engine.Tick(ctx, time.Now())
 					if err != nil {
 						return err
 					}
@@ -168,7 +172,7 @@ func cmdCapture() *cli.Command {
 					}
 
 				case <-sigCh:
-					out := engine.Flush()
+					out := engine.Flush(ctx)
 					utils.Logger().Info("Caught signal, flushing flow logs...",
 						slog.Int("flow_logs", len(out.FlowLogs)),
 					)
