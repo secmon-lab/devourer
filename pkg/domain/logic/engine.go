@@ -13,15 +13,17 @@ import (
 )
 
 type Engine struct {
-	timeout time.Duration
-	flowMap *FlowMap
-	repo    interfaces.Repository
+	timeout    time.Duration
+	flowMap    *FlowMap
+	dnsTracker *DNSTracker
+	repo       interfaces.Repository
 }
 
 func NewEngine(opts ...Option) *Engine {
 	e := &Engine{
-		timeout: 120 * time.Second,
-		flowMap: NewFlowMap(),
+		timeout:    120 * time.Second,
+		flowMap:    NewFlowMap(),
+		dnsTracker: NewDNSTracker(),
 	}
 	for _, opt := range opts {
 		opt(e)
@@ -115,22 +117,31 @@ func (x *Engine) InputPacket(ctx context.Context, pkt gopacket.Packet) (*model.R
 		x.flowMap.SetNames(flow.Key(), serverIP, []string{sni})
 	}
 
-	return &model.Record{}, nil
+	// Track DNS transactions
+	dnsLogs := x.dnsTracker.Input(pkt, pkt.Metadata().Timestamp)
+
+	return &model.Record{
+		DNSLogs: dnsLogs,
+	}, nil
 }
 
 func (x *Engine) Tick(ctx context.Context, now time.Time) (*model.Record, error) {
 	flows := x.flowMap.Expire(now.Add(-x.timeout))
 	x.enrichFlows(ctx, flows)
+	dnsLogs := x.dnsTracker.Expire(now)
 	return &model.Record{
 		FlowLogs: flows,
+		DNSLogs:  dnsLogs,
 	}, nil
 }
 
 func (x *Engine) Flush(ctx context.Context) *model.Record {
 	flows := x.flowMap.Flush()
 	x.enrichFlows(ctx, flows)
+	dnsLogs := x.dnsTracker.Flush()
 	return &model.Record{
 		FlowLogs: flows,
+		DNSLogs:  dnsLogs,
 	}
 }
 
