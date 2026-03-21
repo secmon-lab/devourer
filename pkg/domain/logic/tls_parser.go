@@ -4,6 +4,10 @@ import "encoding/binary"
 
 // extractTLSSNI extracts the Server Name Indication (SNI) hostname from a TLS ClientHello message.
 // Returns empty string if the payload is not a valid TLS ClientHello or does not contain SNI.
+//
+// NOTE: This is a best-effort parser that operates on a single TCP segment.
+// It may miss SNI if the ClientHello is split across multiple TCP segments
+// (fragmentation) or if multiple TLS records are coalesced in one segment.
 func extractTLSSNI(payload []byte) string {
 	// TLS Record Header: ContentType(1) + Version(2) + Length(2) = 5 bytes minimum
 	if len(payload) < 5 {
