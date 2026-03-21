@@ -177,7 +177,7 @@ func extractLLMNR(ctx context.Context, pkt gopacket.Packet, repo interfaces.Repo
 			continue
 		}
 
-		name := string(answer.Name)
+		name := normalizeDNSName(string(answer.Name))
 		if name == "" {
 			continue
 		}
@@ -325,9 +325,6 @@ func decodeNetBIOSName(encoded string) string {
 	name := strings.TrimRight(string(decoded[:15]), " ")
 	return name
 }
-
-// DecodeNetBIOSNameForTest is exported for testing purposes.
-var DecodeNetBIOSNameForTest = decodeNetBIOSName
 
 // parseNBNSNameFromPayload attempts to parse a NetBIOS name from raw NBNS payload
 // starting after the 12-byte header.

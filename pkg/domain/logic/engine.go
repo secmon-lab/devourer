@@ -133,6 +133,8 @@ func (x *Engine) enrichFlows(ctx context.Context, flows []*model.Flow) {
 }
 
 func (x *Engine) enrichPeer(ctx context.Context, peer *model.Peer) {
+	nameSet := make(map[string]struct{})
+
 	// Try IP-based lookup first (DNS)
 	names, err := x.repo.LookupByAddr(ctx, peer.Addr)
 	if err != nil {
@@ -140,6 +142,9 @@ func (x *Engine) enrichPeer(ctx context.Context, peer *model.Peer) {
 			slog.String("addr", peer.Addr.String()),
 			slog.Any("error", err),
 		)
+	}
+	for _, name := range names {
+		nameSet[name] = struct{}{}
 	}
 
 	// Fallback to MAC-based lookup (mDNS/LLMNR/NBNS/DHCP)
@@ -151,10 +156,20 @@ func (x *Engine) enrichPeer(ctx context.Context, peer *model.Peer) {
 				slog.Any("error", err),
 			)
 		}
-		names = append(names, hwNames...)
+		for _, name := range hwNames {
+			nameSet[name] = struct{}{}
+		}
 	}
 
-	peer.Names = names
+	if len(nameSet) == 0 {
+		return
+	}
+
+	uniqueNames := make([]string, 0, len(nameSet))
+	for name := range nameSet {
+		uniqueNames = append(uniqueNames, name)
+	}
+	peer.Names = uniqueNames
 }
 
 func (x *Engine) FlowCount() int {
