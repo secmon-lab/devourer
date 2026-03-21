@@ -16,6 +16,7 @@ devourer is built for this purpose. It captures raw packets, aggregates them int
 
 - **Flow aggregation**: Groups packets into bidirectional flows based on 5-tuple (src/dst IP, src/dst port, protocol). A→B and B→A are treated as the same flow.
 - **Name resolution**: Passively extracts hostnames from DNS, mDNS, LLMNR, NBNS, and DHCP traffic observed on the network. Resolved names are attached to the corresponding flow peers.
+- **DNS logging**: Tracks DNS transactions (query/response pairs) and logs them separately. Handles three scenarios: matched query+response, response-only (no observed query), and query timeout (no response within 2 minutes).
 - **Multiple outputs**: Supports BigQuery (with automatic table creation and day partitioning), JSON file, and stdout.
 - **Protocols**: TCP, UDP, ICMPv4, ICMPv6.
 - **Real-time statistics**: Optional display of packets/sec, bits/sec, and active flow count at a configurable interval.
@@ -56,6 +57,31 @@ Each flow is output as a JSON record:
 }
 ```
 
+DNS transactions are also logged:
+
+```json
+{
+  "id": "a1b2c3d4-5678-90ab-cdef-1234567890ab",
+  "tx_id": 4660,
+  "client_addr": "192.168.1.10",
+  "client_port": 52431,
+  "server_addr": "8.8.8.8",
+  "server_port": 53,
+  "questions": [
+    { "name": "example.com", "type": "A" }
+  ],
+  "response_code": "NOERROR",
+  "answers": [
+    { "name": "example.com", "type": "A", "value": "93.184.216.34", "ttl": 300 }
+  ],
+  "query_at": "2025-01-15T10:30:00Z",
+  "response_at": "2025-01-15T10:30:00.05Z",
+  "status": "resolved"
+}
+```
+
+DNS log status values: `resolved` (query matched with response), `response_only` (response observed without a prior query), `timeout` (no response received within 2 minutes).
+
 ## Installation
 
 ### Binary
@@ -89,7 +115,7 @@ devourer capture -i eth0 --output bigquery \
     --bigquery-sa-key-file <sa-key-file>
 ```
 
-The `flow_logs` table is created automatically with day-based time partitioning.
+The `flow_logs` and `dns_logs` tables are created automatically with day-based time partitioning.
 
 ### Capture and write to file
 
@@ -118,7 +144,7 @@ devourer capture
 
 ## BigQuery schema
 
-The `flow_logs` table has the following columns:
+### `flow_logs`
 
 | Column | Type | Description |
 |---|---|---|
@@ -139,6 +165,23 @@ The `flow_logs` table has the following columns:
 | src_packets | INTEGER | Packets from source to destination |
 | dst_packets | INTEGER | Packets from destination to source |
 | status | STRING | `init` (one-way only) or `established` (both directions seen) |
+
+### `dns_logs`
+
+| Column | Type | Description |
+|---|---|---|
+| id | STRING | Unique log identifier (UUID) |
+| tx_id | INTEGER | DNS transaction ID |
+| client_addr | STRING | DNS client (requester) IP address |
+| client_port | INTEGER | DNS client source port |
+| server_addr | STRING | DNS server (responder) IP address |
+| server_port | INTEGER | DNS server port (typically 53) |
+| questions | RECORD (REPEATED) | Query entries (`name`, `type`) |
+| response_code | STRING | DNS response code (`NOERROR`, `NXDOMAIN`, etc.). Empty for timeouts |
+| answers | RECORD (REPEATED) | Answer entries (`name`, `type`, `value`, `ttl`) |
+| query_at | TIMESTAMP | When the query was observed (NULL for `response_only`) |
+| response_at | TIMESTAMP | When the response was observed (NULL for `timeout`) |
+| status | STRING | `resolved`, `response_only`, or `timeout` |
 
 ## License
 
