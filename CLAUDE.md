@@ -52,9 +52,9 @@ devourer capture -i <interface>
 
 # Capture and store to BigQuery
 devourer capture -i eth0 --output bigquery \
-    --bq-project-id <project-id> \
-    --bq-dataset <dataset-name> \
-    --bq-sa-key-file <sa-key-file>
+    --bigquery-project-id <project-id> \
+    --bigquery-dataset-id <dataset-id> \
+    --bigquery-sa-key-file <sa-key-file>
 
 # Capture and write to file
 devourer capture -i eth0 --output file --write-file flows.json

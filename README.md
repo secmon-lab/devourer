@@ -84,9 +84,9 @@ devourer capture -i <interface>
 
 ```bash
 devourer capture -i eth0 --output bigquery \
-    --bq-project-id <project-id> \
-    --bq-dataset <dataset-name> \
-    --bq-sa-key-file <sa-key-file>
+    --bigquery-project-id <project-id> \
+    --bigquery-dataset-id <dataset-id> \
+    --bigquery-sa-key-file <sa-key-file>
 ```
 
 The `flow_logs` table is created automatically with day-based time partitioning.
@@ -110,9 +110,9 @@ All flags can be set via environment variables with the prefix `DEVOURER_`:
 ```bash
 export DEVOURER_INTERFACE=eth0
 export DEVOURER_OUTPUT=bigquery
-export DEVOURER_BQ_PROJECT_ID=my-project
-export DEVOURER_BQ_DATASET=network_logs
-export DEVOURER_BQ_SA_KEY_FILE=/path/to/key.json
+export DEVOURER_BIGQUERY_PROJECT_ID=my-project
+export DEVOURER_BIGQUERY_DATASET_ID=network_logs
+export DEVOURER_BIGQUERY_SA_KEY_FILE=/path/to/key.json
 devourer capture
 ```
 
@@ -128,6 +128,10 @@ The `flow_logs` table has the following columns:
 | dst_addr | STRING | Destination IP address |
 | src_port | INTEGER | Source port (0 for ICMP) |
 | dst_port | INTEGER | Destination port (0 for ICMP) |
+| src_hw_addr | STRING | Source MAC address |
+| dst_hw_addr | STRING | Destination MAC address |
+| src_names | STRING (REPEATED) | Source peer hostnames (from DNS/mDNS/LLMNR/NBNS/DHCP/TLS SNI) |
+| dst_names | STRING (REPEATED) | Destination peer hostnames (from DNS/mDNS/LLMNR/NBNS/DHCP/TLS SNI) |
 | first_seen_at | TIMESTAMP | When the first packet was observed |
 | last_seen_at | TIMESTAMP | When the last packet was observed |
 | src_bytes | INTEGER | Bytes from source to destination |
