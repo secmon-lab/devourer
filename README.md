@@ -130,7 +130,7 @@ The `flow_logs` table has the following columns:
 | dst_port | INTEGER | Destination port (0 for ICMP) |
 | src_hw_addr | STRING | Source MAC address |
 | dst_hw_addr | STRING | Destination MAC address |
-| src_names | STRING (REPEATED) | Source peer hostnames (from DNS/mDNS/LLMNR/NBNS/DHCP/TLS SNI) |
+| src_names | STRING (REPEATED) | Source peer hostnames (from DNS/mDNS/LLMNR/NBNS/DHCP) |
 | dst_names | STRING (REPEATED) | Destination peer hostnames (from DNS/mDNS/LLMNR/NBNS/DHCP/TLS SNI) |
 | first_seen_at | TIMESTAMP | When the first packet was observed |
 | last_seen_at | TIMESTAMP | When the last packet was observed |
