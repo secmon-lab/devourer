@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"net"
 	"sync"
 	"time"
 
@@ -66,6 +67,22 @@ func (x *FlowMap) Flush() []*model.Flow {
 	x.storage = make(map[model.FlowKey]*model.Flow)
 
 	return flows
+}
+
+func (x *FlowMap) SetNames(key model.FlowKey, addr net.IP, names []string) {
+	x.mutex.Lock()
+	defer x.mutex.Unlock()
+
+	flow, ok := x.storage[key]
+	if !ok {
+		return
+	}
+
+	if net.IP.Equal(flow.Dst.Addr, addr) && len(flow.Dst.Names) == 0 {
+		flow.Dst.Names = names
+	} else if net.IP.Equal(flow.Src.Addr, addr) && len(flow.Src.Names) == 0 {
+		flow.Src.Names = names
+	}
 }
 
 func (x *FlowMap) Len() int {
