@@ -117,8 +117,8 @@ func (t *DNSTracker) handleResponse(dns *layers.DNS, srcAddr net.IP, srcPort uin
 		return []*model.DNSLog{{
 			ID:            uuid.New(),
 			TransactionID: dns.ID,
-			ClientAddr:    net.ParseIP(key.clientAddr),
-			ClientPort:    key.clientPort,
+			ClientAddr:    dstAddr,
+			ClientPort:    dstPort,
 			ServerAddr:    srcAddr,
 			ServerPort:    srcPort,
 			Questions:     pq.questions,
@@ -156,21 +156,7 @@ func (t *DNSTracker) Expire(now time.Time) []*model.DNSLog {
 	var logs []*model.DNSLog
 	for key, pq := range t.pending {
 		if pq.queryAt.Before(threshold) {
-			queryAt := pq.queryAt
-			logs = append(logs, &model.DNSLog{
-				ID:            uuid.New(),
-				TransactionID: key.txID,
-				ClientAddr:    net.ParseIP(key.clientAddr),
-				ClientPort:    key.clientPort,
-				ServerAddr:    net.ParseIP(key.serverAddr),
-				ServerPort:    pq.serverPort,
-				Questions:     pq.questions,
-				ResponseCode:  "",
-				Answers:       nil,
-				QueryAt:       &queryAt,
-				ResponseAt:    nil,
-				Status:        model.DNSStatusTimeout,
-			})
+			logs = append(logs, newTimeoutDNSLog(key, pq))
 			delete(t.pending, key)
 		}
 	}
@@ -182,27 +168,31 @@ func (t *DNSTracker) Flush() []*model.DNSLog {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	var logs []*model.DNSLog
+	logs := make([]*model.DNSLog, 0, len(t.pending))
 	for key, pq := range t.pending {
-		queryAt := pq.queryAt
-		logs = append(logs, &model.DNSLog{
-			ID:            uuid.New(),
-			TransactionID: key.txID,
-			ClientAddr:    net.ParseIP(key.clientAddr),
-			ClientPort:    key.clientPort,
-			ServerAddr:    net.ParseIP(key.serverAddr),
-			ServerPort:    pq.serverPort,
-			Questions:     pq.questions,
-			ResponseCode:  "",
-			Answers:       nil,
-			QueryAt:       &queryAt,
-			ResponseAt:    nil,
-			Status:        model.DNSStatusTimeout,
-		})
+		logs = append(logs, newTimeoutDNSLog(key, pq))
 	}
 	t.pending = make(map[dnsTransactionKey]*pendingQuery)
 
 	return logs
+}
+
+func newTimeoutDNSLog(key dnsTransactionKey, pq *pendingQuery) *model.DNSLog {
+	queryAt := pq.queryAt
+	return &model.DNSLog{
+		ID:            uuid.New(),
+		TransactionID: key.txID,
+		ClientAddr:    net.ParseIP(key.clientAddr),
+		ClientPort:    key.clientPort,
+		ServerAddr:    net.ParseIP(key.serverAddr),
+		ServerPort:    pq.serverPort,
+		Questions:     pq.questions,
+		ResponseCode:  "",
+		Answers:       nil,
+		QueryAt:       &queryAt,
+		ResponseAt:    nil,
+		Status:        model.DNSStatusTimeout,
+	}
 }
 
 func (t *DNSTracker) PendingCount() int {
