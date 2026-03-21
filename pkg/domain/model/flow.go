@@ -3,6 +3,7 @@ package model
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	"net"
 	"time"
 	"unsafe"
@@ -76,6 +77,48 @@ type Peer struct {
 
 func (x Peer) Equal(y *Peer) bool {
 	return net.IP.Equal(x.Addr, y.Addr) && x.Port == y.Port
+}
+
+func (x Peer) MarshalJSON() ([]byte, error) {
+	type peerJSON struct {
+		Addr   net.IP   `json:"addr"`
+		Port   uint32   `json:"port"`
+		HWAddr string   `json:"hw_addr,omitempty"`
+		Names  []string `json:"names,omitempty"`
+	}
+	p := peerJSON{
+		Addr:  x.Addr,
+		Port:  x.Port,
+		Names: x.Names,
+	}
+	if x.HWAddr != nil {
+		p.HWAddr = x.HWAddr.String()
+	}
+	return json.Marshal(p)
+}
+
+func (x *Peer) UnmarshalJSON(data []byte) error {
+	type peerJSON struct {
+		Addr   net.IP   `json:"addr"`
+		Port   uint32   `json:"port"`
+		HWAddr string   `json:"hw_addr,omitempty"`
+		Names  []string `json:"names,omitempty"`
+	}
+	var p peerJSON
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	x.Addr = p.Addr
+	x.Port = p.Port
+	x.Names = p.Names
+	if p.HWAddr != "" {
+		hw, err := net.ParseMAC(p.HWAddr)
+		if err != nil {
+			return err
+		}
+		x.HWAddr = hw
+	}
+	return nil
 }
 
 type Tick int64
