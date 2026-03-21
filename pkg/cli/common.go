@@ -35,6 +35,11 @@ func (s *jsonDumper) Dump(ctx context.Context, record *model.Record) error {
 			return err
 		}
 	}
+	for _, dl := range record.DNSLogs {
+		if err := s.encoder.Encode(dl); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
