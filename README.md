@@ -1,6 +1,8 @@
 # devourer
 
-![logo](https://github.com/m-mizutani/devourer/assets/605953/65b12b2d-3d79-4ba0-b312-de171210210b)
+<p align="center">
+  <img src="https://github.com/m-mizutani/devourer/assets/605953/65b12b2d-3d79-4ba0-b312-de171210210b" height="128" />
+</p>
 
 ## What is this?
 
