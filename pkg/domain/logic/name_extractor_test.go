@@ -14,7 +14,7 @@ import (
 
 func buildPacket(t *testing.T, ethLayer *layers.Ethernet, ipLayer *layers.IPv4, udpLayer *layers.UDP, payloadLayers ...gopacket.SerializableLayer) gopacket.Packet {
 	t.Helper()
-	udpLayer.SetNetworkLayerForChecksum(ipLayer)
+	gt.NoError(t, udpLayer.SetNetworkLayerForChecksum(ipLayer))
 
 	buf := gopacket.NewSerializeBuffer()
 	opts := gopacket.SerializeOptions{FixLengths: true, ComputeChecksums: true}
@@ -253,7 +253,7 @@ func TestExtractDHCP(t *testing.T) {
 		SrcPort: 68,
 		DstPort: 67,
 	}
-	udpLayer.SetNetworkLayerForChecksum(ipLayer)
+	gt.NoError(t, udpLayer.SetNetworkLayerForChecksum(ipLayer))
 
 	err := gopacket.SerializeLayers(buf, opts, ethLayer, ipLayer, udpLayer, dhcp)
 	gt.NoError(t, err)
