@@ -21,25 +21,25 @@ type BigQuery struct {
 func (x *BigQuery) Flags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
-			Name:        "bq-project-id",
+			Name:        "bigquery-project-id",
 			Usage:       "BigQuery project ID",
 			Destination: &x.projectID,
 			Sources:     cli.EnvVars("DEVOURER_BIGQUERY_PROJECT_ID"),
 		},
 		&cli.StringFlag{
-			Name:        "bq-dataset-id",
+			Name:        "bigquery-dataset-id",
 			Usage:       "BigQuery dataset ID",
 			Destination: &x.datasetID,
 			Sources:     cli.EnvVars("DEVOURER_BIGQUERY_DATASET_ID"),
 		},
 		&cli.StringFlag{
-			Name:        "bq-sa-key-data",
+			Name:        "bigquery-sa-key-data",
 			Usage:       "BigQuery service account key data",
 			Destination: &x.saKeyData,
 			Sources:     cli.EnvVars("DEVOURER_BIGQUERY_SA_KEY_DATA"),
 		},
 		&cli.StringFlag{
-			Name:        "bq-sa-key-file",
+			Name:        "bigquery-sa-key-file",
 			Usage:       "BigQuery service account key file",
 			Destination: &x.saKeyFile,
 			Sources:     cli.EnvVars("DEVOURER_BIGQUERY_SA_KEY_FILE"),
