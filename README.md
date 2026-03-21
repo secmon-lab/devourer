@@ -4,75 +4,137 @@
   <img src="https://github.com/m-mizutani/devourer/assets/605953/65b12b2d-3d79-4ba0-b312-de171210210b" height="128" />
 </p>
 
-## What is this?
+A network flow collector that captures packets via libpcap, aggregates them into bidirectional flows, resolves peer names from DNS/mDNS/LLMNR/NBNS/DHCP, and outputs the results to BigQuery, a file, or stdout.
 
-`devourer` is a tool to monitor network traffic and log network flows  to BigQuery.
+## Background
 
-## Usage
+Modern network traffic is almost entirely encrypted with TLS. Deep packet inspection, which was once a primary technique for network security monitoring, can no longer see the contents of most communications. What remains observable at the network level is metadata: who talked to whom, on which port, how much data was exchanged, and for how long — i.e., **network flows**. Combined with **name resolution** (DNS lookups, mDNS, NBNS, etc.), flow logs provide a practical basis for detecting anomalies, investigating incidents, and understanding network behavior without relying on payload inspection.
 
-### Prerequisites
+devourer is built for this purpose. It captures raw packets, aggregates them into flows, enriches them with hostnames collected from name resolution protocols on the wire, and stores the results for analysis.
 
-- **BigQuery dataset**: You need to create a BigQuery dataset to store network flows. See [here](https://cloud.google.com/bigquery/docs/datasets) for more details.
-- **Service Account with BigQuery write permission**: You need to create a service account with BigQuery write permission. See [here](https://cloud.google.com/bigquery/docs/reference/libraries) for more details. You need to grant `roles/bigquery.dataEditor` role to the service account.
-- **Service Account Key**: You need to create a service account key for the service account. See [here](https://cloud.google.com/iam/docs/creating-managing-service-account-keys) for more details.
+## Features
 
-### Installation
-
-#### Binary
-
-```bash
-$ go install github.com/m-mizutani/devourer@latest
-```
-
-#### Docker image
-
-```bash
-$ docker pull ghcr.io/m-mizutani/devourer:latest
-```
-
-### Run
-
-```bash
-$ devourer capture -i <interface> \
-    --bq-project-id <project-id> \
-    --bq-dataset <dataset-name> \
-    --bq-sa-key-file <service-account-key-file>
-```
-
-Or you can set environment variables instead of command line options.
-
-```bash
-$ export DEVOURER_BQ_PROJECT_ID=<project-id>
-$ export DEVOURER_BQ_DATASET=<dataset-name>
-$ export DEVOURER_BQ_SA_KEY_FILE=<service-account-key-file>
-$ devourer capture -i <interface>
-```
+- **Flow aggregation**: Groups packets into bidirectional flows based on 5-tuple (src/dst IP, src/dst port, protocol). A→B and B→A are treated as the same flow.
+- **Name resolution**: Passively extracts hostnames from DNS, mDNS, LLMNR, NBNS, and DHCP traffic observed on the network. Resolved names are attached to the corresponding flow peers.
+- **Multiple outputs**: Supports BigQuery (with automatic table creation and day partitioning), JSON file, and stdout.
+- **Protocols**: TCP, UDP, ICMPv4, ICMPv6.
+- **Real-time statistics**: Optional display of packets/sec, bits/sec, and active flow count at a configurable interval.
+- **Graceful shutdown**: Flushes all in-memory flows on SIGTERM/SIGINT before exiting.
 
 ## How it works
 
-`devourer` captures network packets and extract network flows from them. A network flow is a sequence of packets that have the same 5-tuple (source IP, destination IP, source port, destination port, protocol). `devourer` aggregates network flows and store them to BigQuery.
+1. devourer captures packets from a network interface (or pcap file) using libpcap.
+2. Each packet is classified into a flow by its 5-tuple. The flow key is normalized so that both directions of a conversation map to the same flow.
+3. Name resolution packets (DNS responses, mDNS, LLMNR, NBNS, DHCP) are parsed in parallel to build an in-memory mapping of IP addresses and MAC addresses to hostnames.
+4. When a flow has been idle for 120 seconds (configurable), it is expired, enriched with any resolved names, and sent to the configured output.
+5. On shutdown, all remaining flows are flushed immediately.
 
-`devourer` does not monitor status of transport layer such as TCP, UDP, and ICMP. It only monitors network layer and application layer. So, `devourer` cannot detect TCP connection status such as SYN, SYN-ACK, and FIN. `devourer` determines closing flow by timeout. (default timeout is 120 seconds). After the timeout, `devourer` inserts the flow to BigQuery with `flow_logs` status.
+## Output example
 
-## Network flow schema
+Each flow is output as a JSON record:
 
-`devourer` stores network flows to BigQuery with the following schema as `flow_logs` table. The schema will be created automatically when you run `devourer` for the first time.
+```json
+{
+  "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+  "protocol": "tcp",
+  "src": {
+    "addr": "192.168.1.10",
+    "port": 52431,
+    "hw_addr": "aa:bb:cc:dd:ee:f0",
+    "names": ["my-laptop.local"]
+  },
+  "dst": {
+    "addr": "93.184.216.34",
+    "port": 443,
+    "names": ["example.com"]
+  },
+  "first_seen_at": "2025-01-15T10:30:00Z",
+  "last_seen_at": "2025-01-15T10:31:12Z",
+  "src_stat": { "bytes": 12340, "packets": 42 },
+  "dst_stat": { "bytes": 98210, "packets": 65 },
+  "status": "established"
+}
+```
 
-| Column name | Type | Description |
-| --- | --- | --- |
-| id | string | Unique ID of the network flow. |
-| protocol | string | Protocol of the network flow. |
-| src_addr | string | Source IP address of the network flow. |
-| dst_addr | string | Destination IP address of the network flow. |
-| src_port | int | Source port of the network flow. |
-| dst_port | int | Destination port of the network flow. |
-| first_seen_at | timestamp | Timestamp when the network flow was first seen. |
-| last_seen_at | timestamp | Timestamp when the network flow was last seen. |
-| src_bytes | int | Number of bytes sent from the source to the destination. |
-| dst_bytes | int | Number of bytes sent from the destination to the source. |
-| src_packets | int | Number of packets sent from the source to the destination. |
-| dst_packets | int | Number of packets sent from the destination to the source. |
-| status | string | Status of the network flow. |
+## Installation
+
+### Binary
+
+```bash
+go install github.com/secmon-lab/devourer@latest
+```
+
+Requires `libpcap-dev` (Debian/Ubuntu) or `libpcap` (macOS via Homebrew).
+
+### Docker
+
+```bash
+docker pull ghcr.io/m-mizutani/devourer:latest
+```
+
+## Usage
+
+### Capture and output to stdout (default)
+
+```bash
+devourer capture -i <interface>
+```
+
+### Capture and store to BigQuery
+
+```bash
+devourer capture -i eth0 --output bigquery \
+    --bq-project-id <project-id> \
+    --bq-dataset <dataset-name> \
+    --bq-sa-key-file <sa-key-file>
+```
+
+The `flow_logs` table is created automatically with day-based time partitioning.
+
+### Capture and write to file
+
+```bash
+devourer capture -i eth0 --output file --write-file flows.json
+```
+
+### With real-time statistics
+
+```bash
+devourer capture -i eth0 --stat-interval 10s
+```
+
+### Environment variables
+
+All flags can be set via environment variables with the prefix `DEVOURER_`:
+
+```bash
+export DEVOURER_INTERFACE=eth0
+export DEVOURER_OUTPUT=bigquery
+export DEVOURER_BQ_PROJECT_ID=my-project
+export DEVOURER_BQ_DATASET=network_logs
+export DEVOURER_BQ_SA_KEY_FILE=/path/to/key.json
+devourer capture
+```
+
+## BigQuery schema
+
+The `flow_logs` table has the following columns:
+
+| Column | Type | Description |
+|---|---|---|
+| id | STRING | Unique flow identifier (UUID) |
+| protocol | STRING | Transport protocol (`tcp`, `udp`, `icmp4`, `icmp6`) |
+| src_addr | STRING | Source IP address |
+| dst_addr | STRING | Destination IP address |
+| src_port | INTEGER | Source port (0 for ICMP) |
+| dst_port | INTEGER | Destination port (0 for ICMP) |
+| first_seen_at | TIMESTAMP | When the first packet was observed |
+| last_seen_at | TIMESTAMP | When the last packet was observed |
+| src_bytes | INTEGER | Bytes from source to destination |
+| dst_bytes | INTEGER | Bytes from destination to source |
+| src_packets | INTEGER | Packets from source to destination |
+| dst_packets | INTEGER | Packets from destination to source |
+| status | STRING | `init` (one-way only) or `established` (both directions seen) |
 
 ## License
 
