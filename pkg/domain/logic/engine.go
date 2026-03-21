@@ -57,6 +57,7 @@ func (x *Engine) InputPacket(ctx context.Context, pkt gopacket.Packet) (*model.R
 	netLayer := pkt.NetworkLayer().NetworkFlow()
 
 	var proto string
+	var sni string
 	var srcPort, dstPort uint32
 	switch pkt.TransportLayer().LayerType() {
 	case layers.LayerTypeTCP:
@@ -64,6 +65,7 @@ func (x *Engine) InputPacket(ctx context.Context, pkt gopacket.Packet) (*model.R
 		srcPort = uint32(tcpLayer.SrcPort)
 		dstPort = uint32(tcpLayer.DstPort)
 		proto = "tcp"
+		sni = extractTLSSNI(tcpLayer.Payload)
 	case layers.LayerTypeUDP:
 		udpLayer := pkt.TransportLayer().(*layers.UDP)
 		srcPort = uint32(udpLayer.SrcPort)
@@ -81,17 +83,22 @@ func (x *Engine) InputPacket(ctx context.Context, pkt gopacket.Packet) (*model.R
 	// Extract MAC addresses from Ethernet layer
 	srcMAC, dstMAC := GetEthernetMACs(pkt)
 
+	dstPeer := model.Peer{
+		Addr:   netLayer.Dst().Raw(),
+		Port:   dstPort,
+		HWAddr: dstMAC,
+	}
+	if sni != "" {
+		dstPeer.Names = []string{sni}
+	}
+
 	flow := model.NewFlow(
 		model.Peer{
 			Addr:   netLayer.Src().Raw(),
 			Port:   srcPort,
 			HWAddr: srcMAC,
 		},
-		model.Peer{
-			Addr:   netLayer.Dst().Raw(),
-			Port:   dstPort,
-			HWAddr: dstMAC,
-		},
+		dstPeer,
 		proto,
 		pkt.Metadata().Timestamp,
 		model.PeerStat{
@@ -100,7 +107,13 @@ func (x *Engine) InputPacket(ctx context.Context, pkt gopacket.Packet) (*model.R
 		},
 	)
 
-	_ = x.flowMap.Put(flow)
+	isNew := x.flowMap.Put(flow)
+
+	// For existing flows, set SNI on the server peer if not already set
+	if !isNew && sni != "" {
+		serverIP := netLayer.Dst().Raw()
+		x.flowMap.SetNames(flow.Key(), serverIP, []string{sni})
+	}
 
 	return &model.Record{}, nil
 }
@@ -133,6 +146,11 @@ func (x *Engine) enrichFlows(ctx context.Context, flows []*model.Flow) {
 }
 
 func (x *Engine) enrichPeer(ctx context.Context, peer *model.Peer) {
+	// Skip repository lookup if names are already set (e.g., from TLS SNI)
+	if len(peer.Names) > 0 {
+		return
+	}
+
 	nameSet := make(map[string]struct{})
 
 	// Try IP-based lookup first (DNS)
